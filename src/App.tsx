@@ -8,7 +8,7 @@ const App = () => {
     e.preventDefault();
     axios
       .get(
-        "https://11nfsd5x34.execute-api.us-east-2.amazonaws.com/messages?TableName=FIX-messages-test"
+        "https://11nfsd5x34.execute-api.us-east-2.amazonaws.com/default/messages?TableName=FIX-messages-test"
       )
       .then((response) => {
         setOrdersData(response.data);
@@ -22,11 +22,7 @@ const App = () => {
   return (
     <div className="App">
       <button onClick={handleClick}>Fetch Orders</button>
-      <ol>
-        {ordersData.map((order) => (
-          <li key={order}>{order}</li>
-        ))}
-      </ol>
+      <div>{JSON.stringify(ordersData)}</div>
     </div>
   );
 };
