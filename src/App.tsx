@@ -1,26 +1,34 @@
-import React from 'react';
-import logo from './logo.svg';
-import './App.css';
+import axios from "axios";
+import { useState } from "react";
+import "./App.css";
+const App = () => {
+  const [ordersData, setOrdersData] = useState([]);
 
-function App() {
+  const handleClick = async (e: { preventDefault: () => void; }) => {
+    e.preventDefault();
+    axios
+      .get(
+        "https://11nfsd5x34.execute-api.us-east-2.amazonaws.com/messages?TableName=FIX-messages-test"
+      )
+      .then((response) => {
+        setOrdersData(response.data);
+        console.log(response);
+      })
+      .catch((error) => {
+        console.log(error);
+      });
+  };
+
   return (
     <div className="App">
-      <header className="App-header">
-        <img src={logo} className="App-logo" alt="logo" />
-        <p>
-          Edit <code>src/App.tsx</code> and save to reload.
-        </p>
-        <a
-          className="App-link"
-          href="https://reactjs.org"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          Learn React
-        </a>
-      </header>
+      <button onClick={handleClick}>Fetch Orders</button>
+      <ol>
+        {ordersData.map((order) => (
+          <li key={order}>{order}</li>
+        ))}
+      </ol>
     </div>
   );
-}
+};
 
 export default App;
