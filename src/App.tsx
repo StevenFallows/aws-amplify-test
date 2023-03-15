@@ -2,14 +2,20 @@ import axios from "axios";
 import { useCallback, useEffect, useRef, useState } from "react";
 const REST_ENDPOINT =
   "https://11nfsd5x34.execute-api.us-east-2.amazonaws.com/default/messages?TableName=FIX-messages-test";
-const WEBSOCKET_URL =
+const AWS_WEBSOCKET_URL =
   "wss://bpugc3rkcj.execute-api.us-east-2.amazonaws.com/dev";
 
+
+interface Message {
+  id: string;
+  message: string
+}
+
 const App = () => {
-  const [ordersData, setOrdersData] = useState([]);
+  const [ordersData, setOrdersData] = useState(new Set<any>([]));
   const [isConnected, setIsConnected] = useState(false);
-  const ws = useRef<WebSocket | null>(null);
-  const [messageList, setMessageList] = useState<any[]>([]);
+  const awsWs = useRef<WebSocket | null>(null);
+  const [awsMessageList, setAWSMessageList] = useState([]);
 
   const handleClick = async (e: { preventDefault: () => void }) => {
     e.preventDefault();
@@ -24,18 +30,18 @@ const App = () => {
       });
   };
 
-  const onSocketOpen = useCallback(() => {
+  const onAWSSocketOpen = useCallback(() => {
     setIsConnected(true);
   }, []);
 
-  const onSocketClose = useCallback(() => {
+  const onAWSSocketClose = useCallback(() => {
     setIsConnected(false);
   }, []);
 
-  const onSocketMessage = useCallback((data: any) => {
+  const onAWSSocketMessage = useCallback((data: any) => {
     const parsedData = JSON.parse(data);
-    setMessageList((messageList) => [
-      ...messageList,
+    setAWSMessageList((awsMessageList) => [
+      ...awsMessageList,
       {
         id: parsedData.id.S,
         message: parsedData.message.S,
@@ -44,12 +50,12 @@ const App = () => {
   }, []);
 
   const onConnect = useCallback(() => {
-    if (ws.current?.readyState !== WebSocket.OPEN) {
-      ws.current = new WebSocket(WEBSOCKET_URL);
-      ws.current?.addEventListener("open", onSocketOpen);
-      ws.current?.addEventListener("close", onSocketClose);
-      ws.current?.addEventListener("message", (event) => {
-        onSocketMessage(event.data);
+    if (awsWs.current?.readyState !== WebSocket.OPEN) {
+      awsWs.current = new WebSocket(AWS_WEBSOCKET_URL);
+      awsWs.current?.addEventListener("open", onAWSSocketOpen);
+      awsWs.current?.addEventListener("close", onAWSSocketClose);
+      awsWs.current?.addEventListener("message", (event) => {
+        onAWSSocketMessage(event.data);
       });
     }
     console.log("Connected to Websocket");
@@ -57,13 +63,13 @@ const App = () => {
 
   useEffect(() => {
     return () => {
-      ws.current?.close();
+      awsWs.current?.close();
     };
   }, []);
 
   const onDisconnect = useCallback(() => {
     if (isConnected) {
-      ws.current?.close();
+      awsWs.current?.close();
       console.log("Disconnected from Websocket");
     }
   }, [isConnected]);
@@ -76,8 +82,10 @@ const App = () => {
       <br></br>
       <button onClick={onConnect}>Connect to WebSocket</button>
       <button onClick={onDisconnect}>Disconnect from WebSocket</button>
-      <div>Data from Websocket API Gateway (onmessage)</div>
-      <div>{JSON.stringify(messageList)}</div>
+      <div>Data from AWS Websocket API Gateway (onmessage)</div>
+      <div>{JSON.stringify(awsMessageList)}</div>
+      <br></br>
+      <div>Data from Websocket Server on SpringBoot application</div>
     </div>
   );
 };
