@@ -7,19 +7,14 @@ const AWS_WEBSOCKET_URL =
   "wss://bpugc3rkcj.execute-api.us-east-2.amazonaws.com/dev";
 const SPRINGBOOT_STREAMING_REST_ENDPOINT = "http://localhost:8080/messages/new";
 
-interface Message {
-  id: string;
-  message: string;
-}
-
 const App = () => {
-  const [messagesList, setMessagesList] = useState(new Set<any>([]));
+  const [messagesList, setMessagesList] = useState([]);
   const [isAwsWsConnected, setIsAwsWsConnected] = useState(false);
-  const awsWs = useRef<WebSocket | null>(null);
-  const [awsMessageList, setAWSMessageList] = useState<any[]>([]);
-  const [sbStreamingMessageList, setSbStreamingMessageList] = useState<any>([]);
+  const awsWs = useRef();
+  const [awsMessageList, setAWSMessageList] = useState([]);
+  const [sbStreamingMessageList, setSbStreamingMessageList] = useState([]);
 
-  const handleClick = async (e: { preventDefault: () => void }) => {
+  const handleClick = async (e) => {
     e.preventDefault();
     axios
       .get(REST_ENDPOINT)
@@ -40,9 +35,9 @@ const App = () => {
     setIsAwsWsConnected(false);
   }, []);
 
-  const onAWSSocketMessage = useCallback((data: any) => {
+  const onAWSSocketMessage = useCallback((data) => {
     const parsedData = JSON.parse(data);
-    setAWSMessageList((awsMessageList: any) => [
+    setAWSMessageList((awsMessageList) => [
       ...awsMessageList,
       {
         id: parsedData.id.S,
@@ -82,7 +77,7 @@ const App = () => {
       headers: {
         Accept: "application/stream+json",
       },
-      onopen(res: { ok: any; status: number }) {
+      onopen(res) {
         if (res.ok && res.status === 200) {
           console.log("Connection made ", res);
         } else if (
@@ -98,7 +93,7 @@ const App = () => {
         console.log(parsedData);
         if (parsedData.length !== 0) {
           console.log("gets in here");
-          setSbStreamingMessageList((data: any) => {
+          setSbStreamingMessageList((data) => {
             const array = [...data, parsedData];
             const uniqueSet = new Set(array);
             return Array.from(uniqueSet);
