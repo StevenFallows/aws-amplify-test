@@ -1,31 +1,30 @@
+import { fetchEventSource } from "@microsoft/fetch-event-source";
 import axios from "axios";
 import { useCallback, useEffect, useRef, useState } from "react";
 const REST_ENDPOINT =
   "https://11nfsd5x34.execute-api.us-east-2.amazonaws.com/default/messages?TableName=FIX-messages-test";
 const AWS_WEBSOCKET_URL =
   "wss://bpugc3rkcj.execute-api.us-east-2.amazonaws.com/dev";
-const SPRINGBOOT_WEBSOCKET_URL = "ws://localhost:8080/ws/messages";
+const SPRINGBOOT_STREAMING_REST_ENDPOINT = "http://localhost:8080/messages/new";
 
 interface Message {
   id: string;
-  message: string
+  message: string;
 }
 
 const App = () => {
-  const [ordersData, setOrdersData] = useState(new Set<any>([]));
+  const [messagesList, setMessagesList] = useState(new Set<any>([]));
   const [isAwsWsConnected, setIsAwsWsConnected] = useState(false);
   const awsWs = useRef<WebSocket | null>(null);
   const [awsMessageList, setAWSMessageList] = useState<any[]>([]);
-  const [isSbWsConnected, setIsSbWsConnected] = useState(false);
-  const sbWs = useRef<WebSocket | null>(null);
-  const [sbMessageList, setSbMessageList] = useState<any>([]);
+  const [sbStreamingMessageList, setSbStreamingMessageList] = useState<any>([]);
 
   const handleClick = async (e: { preventDefault: () => void }) => {
     e.preventDefault();
     axios
       .get(REST_ENDPOINT)
       .then((response) => {
-        setOrdersData(response.data);
+        setMessagesList(response.data);
         console.log(response);
       })
       .catch((error) => {
@@ -67,7 +66,6 @@ const App = () => {
   useEffect(() => {
     return () => {
       awsWs.current?.close();
-      sbWs.current?.close();
     };
   }, []);
 
@@ -78,58 +76,59 @@ const App = () => {
     }
   }, [isAwsWsConnected]);
 
-  const onSbSocketOpen = useCallback(() => {
-    setIsSbWsConnected(true);
-  }, []);
-
-  const onSbSocketClose = useCallback(() => {
-    setIsSbWsConnected(false);
-  }, []);
-
-  const onSbSocketMessage = useCallback((data: any) => {
-    const parsedData = JSON.parse(data);
-    setSbMessageList((sbMessageList: any) => [
-      ...sbMessageList,
-      {
-        data
+  const handleStreamingClick = async () => {
+    await fetchEventSource(SPRINGBOOT_STREAMING_REST_ENDPOINT, {
+      method: "GET",
+      headers: {
+        Accept: "application/stream+json",
       },
-    ]);
-  }, []);
-
-  const onSbWsConnect = useCallback(() => {
-    if (sbWs.current?.readyState !== WebSocket.OPEN) {
-      awsWs.current = new WebSocket(SPRINGBOOT_WEBSOCKET_URL);
-      awsWs.current?.addEventListener("open", onSbSocketOpen);
-      awsWs.current?.addEventListener("close", onSbSocketClose);
-      awsWs.current?.addEventListener("message", (event) => {
-        onSbSocketMessage(event.data);
-      });
-    }
-    console.log("Connected to SpringBoot WebSocket");
-  }, []);
-
-  const onSbWsDisconnect = useCallback(() => {
-    if (isSbWsConnected) {
-      sbWs.current?.close();
-      console.log("Disconnected from SpringBoot WebSocket");
-    }
-  }, [isSbWsConnected]);
-
+      onopen(res: { ok: any; status: number }) {
+        if (res.ok && res.status === 200) {
+          console.log("Connection made ", res);
+        } else if (
+          res.status >= 400 &&
+          res.status < 500 &&
+          res.status !== 429
+        ) {
+          console.log("Client side error ", res);
+        }
+      },
+      onmessage(event) {
+        const parsedData = event.data;
+        console.log(parsedData);
+        if (parsedData.length !== 0) {
+          console.log("gets in here");
+          setSbStreamingMessageList((data: any) => {
+            const array = [...data, parsedData];
+            const uniqueSet = new Set(array);
+            return Array.from(uniqueSet);
+          });
+        }
+      },
+      onclose() {
+        console.log("Connection closed by the server");
+      },
+      onerror(err) {
+        console.log("There was an error from server", err);
+      },
+    });
+  };
   return (
     <div className="App">
-      <button onClick={handleClick}>Fetch Orders</button>
+      <button onClick={handleClick}>Fetch Messages</button>
       <div>Data from API Gateway (GET REST API)</div>
-      <div>{JSON.stringify(ordersData)}</div>
+      <div>{JSON.stringify(messagesList)}</div>
       <br></br>
       <button onClick={onAwsWsConnect}>Connect to AWS WebSocket</button>
       <button onClick={onAwsWsDisconnect}>Disconnect from AWS WebSocket</button>
       <div>Data from AWS Websocket API Gateway (onmessage)</div>
       <div>{JSON.stringify(awsMessageList)}</div>
       <br></br>
-      <button onClick={onSbWsConnect}>Connect to SpringBoot WebSocket</button>
-      <button onClick={onSbWsDisconnect}>Disconnect from SpringBoot WebSocket</button>
-      <div>Data from Websocket Server on SpringBoot application</div>
-      <div>{JSON.stringify(sbMessageList)}</div>
+      <button onClick={handleStreamingClick}>
+        Fetch realtime streaming orders from SpringBoot
+      </button>
+      <div>Data from Streaming REST API on SpringBoot</div>
+      <div>{sbStreamingMessageList}</div>
     </div>
   );
 };
